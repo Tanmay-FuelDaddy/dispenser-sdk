@@ -1,35 +1,32 @@
-// correct these 
-// VITE_COMM_METHOD=TTY
-// VITE_PRINTER_SERIAL=/dev/ttyAMA1
-
 import { SerialPort } from 'serialport';
 import debug from 'debug';
-import { getConfigFromEnv } from './envParser';  // Import the config parser
+import { getConfigFromEnv, validateTTYPath } from './envParser';
 
 const debugLog = debug('dispenser:find-printer-port');
 
-export async function findPrinterPort() {
+// NEW: Primary function
+async function findPrinterPortInternal() {
     try {
-        // Get the complete configuration
         const config = getConfigFromEnv();
         
-        // Check if we have printer configuration
         if (!config.printer) {
-            throw new Error('Printer configuration not found in environment');
+            throw new Error('Printer configuration not found');
         }
         
-        // TTY Mode: Use fixed serial port path
-        if (config.commMethod === 'TTY') {
-            const ttyPath = config.printer.ttyPath || config.ttyPrinterPath;
-            if (!ttyPath) {
-                throw new Error('TTY printer path not configured');
+        // TTY Mode
+        if (config.printer.commMethod === 'TTY') {
+            const ttyPath = config.printer.ttyPath || '/dev/ttyAMA1';
+            
+            // Validate path
+            if (!validateTTYPath(ttyPath)) {
+                throw new Error(`TTY path ${ttyPath} does not exist`);
             }
             
-            debugLog('Using TTY mode with printer port:', ttyPath);
+            debugLog('Using TTY printer port:', ttyPath);
             return ttyPath;
         }
         
-        // USB Mode: Fall back to hardware ID detection
+        // USB Mode
         const hardwareId = config.printer.hardwareId;
         const attributeId = config.printer.attributeId;
         
@@ -37,21 +34,34 @@ export async function findPrinterPort() {
             throw new Error('USB printer configuration incomplete - missing hardwareId or attributeId');
         }
         
-        debugLog(`Finding USB printer port with hardware ID: ${hardwareId}, attribute ID: ${attributeId}`);
+        debugLog(`Finding USB printer port with IDs: ${hardwareId}/${attributeId}`);
         
         const ports = await SerialPort.list();
-        const foundPort = ports.find(port => {
-            return port.vendorId === hardwareId && port.productId === attributeId;
-        });
+        const foundPort = ports.find(port => 
+            port.vendorId === hardwareId && 
+            port.productId === attributeId
+        );
 
         if (foundPort) {
             debugLog('Found USB printer port:', foundPort.path);
             return foundPort.path;
-        } else {
-            throw new Error(`Printer port not found for hardware ID: ${hardwareId}, product ID: ${attributeId}`);
         }
+        
+        throw new Error(`Printer port not found for USB IDs: ${hardwareId}/${attributeId}`);
     } catch (error) {
         debugLog('Error finding printer port:', error);
         throw error;
     }
+}
+
+// NEW: Primary export (no parameters)
+export async function findPrinterPort(): Promise<string> {
+    return findPrinterPortInternal();
+}
+
+// DEPRECATED: Backward compatible version
+export async function findPrinterPortLegacy(hardwareId: string, attributeId: string): Promise<string> {
+    debugLog('DEPRECATED: findPrinterPortLegacy is obsolete and parameters are ignored');
+    console.warn('DEPRECATION WARNING: findPrinterPortLegacy() is deprecated. Use findPrinterPort() instead');
+    return findPrinterPortInternal();
 }
