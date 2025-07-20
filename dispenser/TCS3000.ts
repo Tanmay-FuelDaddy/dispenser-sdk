@@ -3,6 +3,7 @@ import { BaseDispenser } from './base/BaseDispenser';
 import { AutoDetectTypes } from '@serialport/bindings-cpp';
 import { SerialPort } from 'serialport';
 import { DispenserOptions } from '../main';
+import { printFormat } from '../utils/printFormat';
 
 const debugLog = debug('dispenser:tcs3000');
 export class TCS3000 extends BaseDispenser {
@@ -12,7 +13,7 @@ export class TCS3000 extends BaseDispenser {
 	private read_status = Buffer.from([0x7e, 0x01, 0x00, 0x40, 0x1f, 0x00, 0x83]);
 
 	private pump_start = Buffer.from([0x7e, 0x01, 0x00, 0x40, 0x1f, 0x00, 0x83]);
-	private pump_stop = Buffer.from([0x7e, 0x01, 0x00, 0x20, 0x3b, 0x00, 0xdc]);
+	private pump_stop = Buffer.from([0x7e, 0x01, 0x00, 0x20, 0x3d, 0x00, 0x76]);
 
 	private cancel_preset = Buffer.from([0x7e, 0x01, 0x00, 0x20, 0x36, 0x00, 0x55]);
 
@@ -409,70 +410,21 @@ export class TCS3000 extends BaseDispenser {
 	}
 
 	printReceipt(printObj: any) {
-		const printWidth = 40;
 		const printArr = [];
 
 		debugLog('printReceipt: %o', printObj);
 
 		if (printObj?.isReceiptRequired) {
-			printArr.push(this.str2hex(this.centerAlignValue('****  CUSTOMER COPY  ****', printWidth)));
-			printArr.push('0A');
-			printArr.push(this.str2hex(this.centerAlignValue('FUELBUDDY FUEL SUPPLY LLC', printWidth)));
-			printArr.push('0A');
-			printArr.push(this.str2hex(this.rightAlignValue('BOWSER No', printObj?.vehicleRegistrationNumber, printWidth)));
-			printArr.push(this.str2hex(this.rightAlignValue('ASSET No', printObj?.registrationNumber, printWidth)));
-			printArr.push(this.str2hex(this.rightAlignValue('DATE', new Date(printObj?.orderDate).toLocaleDateString(), printWidth)));
-			printArr.push('0A');
-			printArr.push(this.str2hex(this.rightAlignValue('DRIVER', printObj?.driverCode, printWidth)));
-			printArr.push(this.str2hex(this.rightAlignValue('CUSTOMER', printObj?.customerCode, printWidth)));
-			printArr.push(this.str2hex(this.rightAlignValue('ORDER No', printObj?.orderCode, printWidth)));
-			printArr.push('0A');
-			printArr.push(this.str2hex(this.rightAlignValue('Batch No', printObj?.batchCode, printWidth)));
-			printArr.push(this.str2hex(this.rightAlignValue('START TIME', new Date(printObj?.startTime).toLocaleTimeString(), printWidth)));
-			printArr.push(this.str2hex(this.rightAlignValue('END TIME', new Date(printObj?.endTime).toLocaleTimeString(), printWidth)));
-			printArr.push('0A');
-			printArr.push(this.str2hex(this.rightAlignValue('PRODUCT', printObj?.productName, printWidth)));
-			printArr.push('0A');
-			printArr.push(this.str2hex(this.rightAlignValue('DELIVERED', printObj?.quantity, printWidth)));
-			printArr.push(this.str2hex(this.rightAlignValue('START TOT.', printObj?.startTotalizer, printWidth)));
-			printArr.push(this.str2hex(this.rightAlignValue('END TOT.', printObj?.endTotalizer, printWidth)));
-			if (printObj?.odometerReading) {
-				printArr.push(this.str2hex(this.rightAlignValue('ODOMETER', printObj?.odometerReading, printWidth)));
-			}
-			printArr.push('0A');
-			printArr.push(this.str2hex(this.rightAlignValue('GROSS VOLUME', printObj?.unitOfMeasure, printWidth)));
-			printArr.push('0A0A1D564100');
+			printArr.push(...printFormat(printObj, 'DISPENSING SLIP'));
+			printArr.push('0A1D564100');
 		}
 
-		printArr.push(this.str2hex(this.centerAlignValue('****  PRINT COPY  ****', printWidth)));
-		printArr.push('0A');
-		printArr.push(this.str2hex(this.centerAlignValue('FUELBUDDY FUEL SUPPLY LLC', printWidth)));
-		printArr.push('0A');
-		printArr.push(this.str2hex(this.rightAlignValue('BOWSER No', printObj?.vehicleRegistrationNumber, printWidth)));
-		printArr.push(this.str2hex(this.rightAlignValue('ASSET No', printObj?.registrationNumber, printWidth)));
-		printArr.push(this.str2hex(this.rightAlignValue('DATE', new Date(printObj?.orderDate).toLocaleDateString(), printWidth)));
-		printArr.push('0A');
-		printArr.push(this.str2hex(this.rightAlignValue('DRIVER ID', printObj?.driverCode, printWidth)));
-		printArr.push(this.str2hex(this.rightAlignValue('CUSTOMER ID', printObj?.customerCode, printWidth)));
-		printArr.push(this.str2hex(this.rightAlignValue('ORDER No', printObj?.orderCode, printWidth)));
-		printArr.push('0A');
-		printArr.push(this.str2hex(this.rightAlignValue('Batch No', printObj?.batchCode, printWidth)));
-		printArr.push(this.str2hex(this.rightAlignValue('START TIME', new Date(printObj?.startTime).toLocaleTimeString(), printWidth)));
-		printArr.push(this.str2hex(this.rightAlignValue('END TIME', new Date(printObj?.endTime).toLocaleTimeString(), printWidth)));
-		printArr.push('0A');
-		printArr.push(this.str2hex(this.rightAlignValue('PRODUCT', printObj?.productName, printWidth)));
-		printArr.push('0A');
-		printArr.push(this.str2hex(this.rightAlignValue('DELIVERED', printObj?.quantity, printWidth)));
-		printArr.push(this.str2hex(this.rightAlignValue('START TOT.', printObj?.startTotalizer, printWidth)));
-		printArr.push(this.str2hex(this.rightAlignValue('END TOT.', printObj?.endTotalizer, printWidth)));
-		if (printObj?.odometerReading) {
-			printArr.push(this.str2hex(this.rightAlignValue('ODOMETER', printObj?.odometerReading, printWidth)));
-		}
-		printArr.push('0A');
-		printArr.push(this.str2hex(this.rightAlignValue('GROSS VOLUME', printObj?.unitOfMeasure, printWidth)));
+		printArr.push(...printFormat(printObj, 'PRINT COPY'));
 
-		debugLog('printReceipt: %s', `${printArr.join('0A')}0A0A1D564200`);
-		return this.printOrder(`${printArr.join('0A')}0A0A1D564200`);
+		const recieptString = `${printArr.join('0A')}0A1D564200`;
+
+		debugLog('printReceipt: %s', `${recieptString}`);
+		return this.printOrder(recieptString);
 	}
 
 	printOrder(printText: string): boolean {
